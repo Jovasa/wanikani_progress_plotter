@@ -11,30 +11,33 @@ with open(temp, "r") as t:
     wanikani_token = t.read()
 
 
-def test(refresh_data=True):
-    if refresh_data:
-        http = urllib3.PoolManager()
-        next_url = "https://api.wanikani.com/v2/assignments"
-        assignments = []
-        while next_url is not None:
-            t = http.request("GET",
-                             next_url,
-                             headers={"Authorization": f"Bearer {wanikani_token}"}
-                             )
-            data = json.loads(t.data.decode("utf-8"))
-            assignments.extend(data["data"])
-            next_url = data["pages"]["next_url"]
-            print("Got one page. Next ", next_url)
-            sleep(2)
+def worker():
+    with open("out_ass.json", "r") as d:
+        assignments = json.load(d)
 
-        with open("out_ass.json", "w") as d:
-            json.dump(assignments, d)
-    else:
-        with open("out_ass.json", "r") as d:
-            assignments = json.load(d)
+    http = urllib3.PoolManager()
+    next_url = f"https://api.wanikani.com/v2/assignments?updated_after={assignments['data_updated_at']}"
+    temp_data = []
+    while next_url is not None:
+        t = http.request("GET",
+                         next_url,
+                         headers={"Authorization": f"Bearer {wanikani_token}"}
+                         )
+        data = json.loads(t.data.decode("utf-8"))
+        temp_data.extend(data["data"])
+        next_url = data["pages"]["next_url"]
+        if data["data_updated_at"]:
+            assignments['data_updated_at'] = data['data_updated_at']
+        print("Got one page. Next ", next_url)
+        sleep(2)
+
+    assignments["data"].update({str(x["id"]): x for x in temp_data})
+
+    with open("out_ass.json", "w") as d:
+        json.dump(assignments, d)
 
     coll = defaultdict(lambda: defaultdict(int))
-    for a in assignments:
+    for k, a in assignments["data"].items():
         d = a["data"]
         t = d["subject_type"]
         s = d["srs_stage"]
@@ -49,7 +52,7 @@ def collect_data():
     with open("wanikani_perf.json", "r") as f:
         data = json.load(f)
 
-    n = test(True)
+    n = worker()
 
     data[str(now)] = n
 
