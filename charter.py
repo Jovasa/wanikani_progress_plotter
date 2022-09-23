@@ -23,7 +23,7 @@ def do_chart():
     with open("wanikani_perf.json") as d:
         data = json.load(d)
 
-    fig = plt.figure(figsize=[8, 12])
+    fig = plt.figure(figsize=[8, 13])
     for i, t in enumerate(["radical", "kanji", "vocabulary"]):
         ax = fig.add_subplot(311 + i)
         ax.set_title(t.capitalize())
@@ -42,7 +42,7 @@ def do_chart():
             ax.plot(f, s, color=colors[x])
             labels.append(str(x))
         ax.legend(labels, loc="upper left", ncol=10)
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y\n%m-%d'))
     plt.show()
 
 

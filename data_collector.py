@@ -29,7 +29,8 @@ def worker():
         if data["data_updated_at"]:
             assignments['data_updated_at'] = data['data_updated_at']
         print("Got one page. Next ", next_url)
-        sleep(2)
+        if next_url is not None:
+            sleep(2)
 
     assignments["data"].update({str(x["id"]): x for x in temp_data})
 
