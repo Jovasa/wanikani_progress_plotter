@@ -28,7 +28,7 @@ def do_chart():
         ax = fig.add_subplot(311 + i)
         ax.set_title(t.capitalize())
         labels = []
-        for x in range(0, 11):
+        for x in range(1, 10):
             f = []
             s = []
             for k, v in data.items():
@@ -41,7 +41,7 @@ def do_chart():
                 continue
             ax.plot(f, s, color=colors[x])
             labels.append(str(x))
-        ax.legend(labels, loc="upper left", ncol=10)
+        ax.legend(labels, loc="upper left", ncol=4)
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y\n%m-%d'))
     plt.show()
 

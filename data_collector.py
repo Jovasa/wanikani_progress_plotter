@@ -17,6 +17,7 @@ def worker():
 
     http = urllib3.PoolManager()
     next_url = f"https://api.wanikani.com/v2/assignments?updated_after={assignments['data_updated_at']}"
+
     temp_data = []
     while next_url is not None:
         t = http.request("GET",
