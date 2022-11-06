@@ -178,7 +178,7 @@ def main():
     fig.show()
 
     with open("last_done.txt", "w") as l:
-        l.write(datetime.datetime.now().isoformat())
+        l.write(datetime.datetime.utcnow().isoformat())
 
 
 if __name__ == '__main__':
