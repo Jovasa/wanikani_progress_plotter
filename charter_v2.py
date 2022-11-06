@@ -90,10 +90,10 @@ def main():
         ending_srs_stage = d["ending_srs_stage"]
 
         hourly_data[object_type][date][d["subject_id"]] = ending_srs_stage
-        hourly_answer_ratio[object_type][date]["meaning_answers"] = d["incorrect_meaning_answers"] + 1
-        hourly_answer_ratio[object_type][date]["incorrect_meaning_answers"] = d["incorrect_meaning_answers"]
-        hourly_answer_ratio[object_type][date]["reading_answers"] = d["incorrect_reading_answers"] + 1
-        hourly_answer_ratio[object_type][date]["incorrect_reading_answers"] = d["incorrect_reading_answers"]
+        hourly_answer_ratio[object_type][date]["meaning_answers"] += d["incorrect_meaning_answers"] + 1
+        hourly_answer_ratio[object_type][date]["incorrect_meaning_answers"] += d["incorrect_meaning_answers"]
+        hourly_answer_ratio[object_type][date]["reading_answers"] += d["incorrect_reading_answers"] + 1
+        hourly_answer_ratio[object_type][date]["incorrect_reading_answers"] += d["incorrect_reading_answers"]
 
     accumulated = dict()
     object_types = ["radical", "kanji", "vocabulary"]
@@ -139,6 +139,11 @@ def main():
                 if weekly_data[m] == 0:
                     continue
                 ax.bar(place, 1 - weekly_data[f"incorrect_{m}"] / weekly_data[m], color=coloring[m], width=1)
+                ax.annotate(f'{weekly_data[m] - weekly_data[f"incorrect_{m}"]}\n/\n{weekly_data[m]}',
+                            (place, 0.5),
+                            (place, 0.5),
+                            horizontalalignment="center",
+                            color="black" if m == "meaning_answers" else "white")
             xticks.append(place if t == "radical" else place - 0.5)
             labels.append(f"{year} {week}")
             place += 0.5
