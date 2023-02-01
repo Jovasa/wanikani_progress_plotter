@@ -71,6 +71,8 @@ def main():
 
     hourly_data = defaultdict(lambda: defaultdict(dict))
     hourly_answer_ratio = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    subject_spent_on_stage = defaultdict(lambda: defaultdict(float))
+    subject_previous_completion = dict()
     for r in data:
         # {"_id": "6366400b421d07cd976aeff9", "id": 2751167231, "object": "review",
         # "data": {"created_at": "2022-08-15T13:49:17.663000",
@@ -94,6 +96,11 @@ def main():
         hourly_answer_ratio[object_type][date]["incorrect_meaning_answers"] += d["incorrect_meaning_answers"]
         hourly_answer_ratio[object_type][date]["reading_answers"] += d["incorrect_reading_answers"] + 1
         hourly_answer_ratio[object_type][date]["incorrect_reading_answers"] += d["incorrect_reading_answers"]
+
+        if d["subject_id"] in subject_previous_completion:
+            subject_spent_on_stage[d["subject_id"]][d["starting_srs_stage"]] \
+                += (date - subject_previous_completion[d["subject_id"]]).total_seconds() / 60
+        subject_previous_completion[d["subject_id"]] = date
 
     accumulated = dict()
     object_types = ["radical", "kanji", "vocabulary"]
@@ -145,7 +152,7 @@ def main():
                             horizontalalignment="center",
                             color="black" if m == "meaning_answers" else "white")
             xticks.append(place if t == "radical" else place - 0.5)
-            labels.append(f"{year} {week}")
+            labels.append(f"{year}\nw{week}")
             place += 0.5
         ax.set_xticks(xticks)
         ax.set_xticklabels(labels)
@@ -162,6 +169,7 @@ def main():
 
     fig = plt.figure(num=1, figsize=[8, 13])
     for i, t in enumerate(object_types):
+        has_data = [False for x in range(10)]
         ax = fig.add_subplot(311 + i)
         ax.set_title(t.capitalize())
         labels = []
@@ -170,9 +178,17 @@ def main():
             f = []
             s = []
             for k, v in accumulated[t].items():
+                if v[x] == 0 and not has_data[x]:
+                    if len(f) == 0:
+                        f.append(k)
+                        s.append(0)
+                    else:
+                        f[0] = k
+                    continue
                 f.append(k)
                 s.append(v[x])
                 maximum = max(maximum, v[x])
+                has_data[x] = True
             if not any(a != 0 for a in s):
                 continue
             ax.plot(f, s, color=colors[x])
@@ -181,6 +197,29 @@ def main():
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y\n%m-%d'))
         ax.vlines([x["data"]["passed_at"] for x in level_ups], 0, maximum, linestyles="dashed", zorder=-1)
     fig.show()
+
+    apprentice = list()
+    guru = list()
+    master = list()
+    enlightened = list()
+    burned = list()
+    for subject, d in subject_spent_on_stage.items():
+        apprentice.append((subject, sum(d[x] for x in range(1, 5))))
+        guru.append((subject, sum(d[x] for x in range(5, 7))))
+        master.append((subject, sum(d[x] for x in range(7, 8))))
+        enlightened.append((subject, sum(d[x] for x in range(8, 9))))
+        burned.append((subject, sum(d[x] for x in range(9, 10))))
+
+    apprentice.sort(key=lambda x: x[1], reverse=True)
+    guru.sort(key=lambda x: x[1], reverse=True)
+    master.sort(key=lambda x: x[1], reverse=True)
+    enlightened.sort(key=lambda x: x[1], reverse=True)
+    burned.sort(key=lambda x: x[1], reverse=True)
+
+    for k in [apprentice, guru, master, enlightened, burned]:
+        for (subject, time) in k[:20]:
+            print(f"{time} {subjects[subject]} ")
+        print()
 
     with open("last_done.txt", "w") as l:
         l.write(datetime.datetime.utcnow().isoformat())
