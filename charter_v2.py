@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 from collections import defaultdict
 from pathlib import Path
@@ -73,6 +75,8 @@ def main():
     hourly_answer_ratio = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     subject_spent_on_stage = defaultdict(lambda: defaultdict(float))
     subject_previous_completion = dict()
+    weekly_wrong_answers_by_starting_level = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    weekly_correct_answers_by_starting_level = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     for r in data:
         # {"_id": "6366400b421d07cd976aeff9", "id": 2751167231, "object": "review",
         # "data": {"created_at": "2022-08-15T13:49:17.663000",
@@ -84,7 +88,7 @@ def main():
         #          "incorrect_meaning_answers": 0, "incorrect_reading_answers": 0},
         # "data_updated_at": "2022-08-15T13:49:17.682000", "url": "https://api.wanikani.com/v2/reviews/2751167231"},
         d = r["data"]
-        date = r["data_updated_at"]
+        date: datetime.datetime = r["data_updated_at"]
         date -= datetime.timedelta(minutes=date.minute, seconds=date.second, microseconds=date.microsecond)
 
         object_type = subjects[int(d["subject_id"])]["object"]
@@ -96,6 +100,13 @@ def main():
         hourly_answer_ratio[object_type][date]["incorrect_meaning_answers"] += d["incorrect_meaning_answers"]
         hourly_answer_ratio[object_type][date]["reading_answers"] += d["incorrect_reading_answers"] + 1
         hourly_answer_ratio[object_type][date]["incorrect_reading_answers"] += d["incorrect_reading_answers"]
+
+        if d["starting_srs_stage"] >= d["ending_srs_stage"]:
+            weekly_wrong_answers_by_starting_level \
+                [object_type][(date.isocalendar().year, date.isocalendar().week)][d["starting_srs_stage"]] += 1
+        else:
+            weekly_correct_answers_by_starting_level \
+                [object_type][(date.isocalendar().year, date.isocalendar().week)][d["starting_srs_stage"]] += 1
 
         if d["subject_id"] in subject_previous_completion:
             subject_spent_on_stage[d["subject_id"]][d["starting_srs_stage"]] \
@@ -193,9 +204,32 @@ def main():
                 continue
             ax.plot(f, s, color=colors[x])
             labels.append(str(x))
-        ax.legend(labels, loc="upper left", ncol=4)
+        ax.legend(labels, loc="upper left", ncol=3 if has_data[9] else 4)
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y\n%m-%d'))
         ax.vlines([x["data"]["passed_at"] for x in level_ups], 0, maximum, linestyles="dashed", zorder=-1)
+    fig.show()
+
+    fig = plt.figure(num=2, figsize=[12, 13])
+    for i, t in enumerate(object_types):
+        ax = fig.add_subplot(311 + i)
+        ax.set_title(t.capitalize())
+        labels = []
+
+        xticks = []
+        place = 0
+        for k, v in weekly_correct_answers_by_starting_level[t].items():
+            if k[0] != 2023:
+                continue
+            place += 2
+            correct = [0 for x in range(10)]
+            total = [0 for x in range(10)]
+            for x in range(1, 10):
+                correct[x] += v[x]
+                total[x] += v[x] + weekly_wrong_answers_by_starting_level[t][k][x]
+
+                if total[x] > 0:
+                    ax.bar(place, correct[x] / total[x], color=colors[x], width=1)
+                place += 1
     fig.show()
 
     apprentice = list()
