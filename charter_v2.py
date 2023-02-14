@@ -213,13 +213,14 @@ def main():
     for i, t in enumerate(object_types):
         ax = fig.add_subplot(311 + i)
         ax.set_title(t.capitalize())
-        labels = []
-
-        xticks = []
         place = 0
+        legend = [_ for _ in range(1, 10)]
+        labels = []
         for k, v in weekly_correct_answers_by_starting_level[t].items():
             if k[0] != 2023:
                 continue
+
+            labels.append(f"{k[0]}\nw{k[1]}")
             place += 2
             correct = [0 for x in range(10)]
             total = [0 for x in range(10)]
@@ -228,8 +229,16 @@ def main():
                 total[x] += v[x] + weekly_wrong_answers_by_starting_level[t][k][x]
 
                 if total[x] > 0:
-                    ax.bar(place, correct[x] / total[x], color=colors[x], width=1)
+                    legend[x - 1] = ax.bar(place, correct[x] / total[x], color=colors[x], width=1)
                 place += 1
+
+        ax.legend(legend, [x for x in range(1, 10)], ncol=9, loc="lower center")
+        ax.set_xticks([x * 11 + 5.5 for x in range(7)])
+        ax.set_xticklabels(labels)
+        ax.set_yticks([x / 10 for x in range(0, 11)])
+        ax.set_yticklabels([f"{x * 10}%" for x in range(0, 11)])
+        ax.yaxis.grid(True)
+        ax.set_ybound(0, 1.05)
     fig.show()
 
     apprentice = list()
