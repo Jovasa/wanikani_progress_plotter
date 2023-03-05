@@ -7,6 +7,7 @@ from typing import Iterable
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import numpy as np
 
 from wanikani_api import UserHandle
 
@@ -29,6 +30,50 @@ colors = [
 temp = (Path(__file__) / ".." / "wanikani_token").resolve()
 with open(temp, "r") as t:
     wanikani_token = t.read()
+
+
+def calendar_array(dates, data):
+    i, j = zip(*[d.isocalendar()[1:] for d in dates])
+    i = np.array(i) - min(i)
+    j = np.array(j) - 1
+    ni = max(i) + 1
+
+    calendar = np.nan * np.zeros((ni, 7))
+    calendar[i, j] = data
+    return i, j, calendar
+
+
+def calendar_heatmap(ax, dates, data):
+    i, j, calendar = calendar_array(dates, data)
+    im = ax.imshow(calendar, interpolation='none', cmap='summer')
+    label_days(ax, data, i, j, calendar)
+    label_months(ax, dates, i, j, calendar)
+    ax.figure.colorbar(im)
+
+
+def label_days(ax, dates, i, j, calendar):
+    ni, nj = calendar.shape
+    day_of_month = np.nan * np.zeros((ni, 7))
+    day_of_month[i, j] = [d for d in dates]
+
+    for (i, j), day in np.ndenumerate(day_of_month):
+        if np.isfinite(day):
+            ax.text(j, i, int(day), ha='center', va='center')
+
+    ax.set(xticks=np.arange(7),
+           xticklabels=['M', 'T', 'W', 'R', 'F', 'S', 'S'])
+    ax.xaxis.tick_top()
+
+
+def label_months(ax, dates, i, j, calendar):
+    month_labels = np.array(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul',
+                             'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+    months = np.array([d.month for d in dates])
+    uniq_months = sorted(set(months))
+    yticks = [i[months == m].mean() for m in uniq_months]
+    labels = [month_labels[m - 1] for m in uniq_months]
+    ax.set(yticks=yticks)
+    ax.set_yticklabels(labels, rotation=90)
 
 
 def get_subjects(user: UserHandle):
@@ -55,6 +100,12 @@ def get_reviews(user: UserHandle, last_updated: datetime.datetime):
     up = user.get_reviews(updated_after=last_updated)
     print(f"updated {len([x for x in up])} reviews")
     return [x for x in user._personal_cache.find({"object": "review"})]
+
+
+def get_assignments(user: UserHandle, last_updated: datetime.datetime):
+    up = user.get_assignments(updated_after=last_updated)
+    print(f"updated {len([x for x in up])} assignments")
+    return [x for x in user._personal_cache.find({"object": "assignment"})]
 
 
 def main():
@@ -178,7 +229,7 @@ def main():
             ax.legend(["meaning", "reading"], loc="lower left")
     fig.show()
 
-    fig = plt.figure(num=1, figsize=[8, 13])
+    fig = plt.figure(num=1, figsize=[10, 13])
     for i, t in enumerate(object_types):
         has_data = [False for x in range(10)]
         ax = fig.add_subplot(311 + i)
@@ -214,7 +265,7 @@ def main():
         ax = fig.add_subplot(311 + i)
         ax.set_title(t.capitalize())
         place = 0
-        legend = [_ for _ in range(1, 10)]
+        legend = [_ for _ in range(1, 9)]
         labels = []
         for k, v in weekly_correct_answers_by_starting_level[t].items():
             if k[0] != 2023:
@@ -232,8 +283,8 @@ def main():
                     legend[x - 1] = ax.bar(place, correct[x] / total[x], color=colors[x], width=1)
                 place += 1
 
-        ax.legend(legend, [x for x in range(1, 10)], ncol=9, loc="lower center")
-        ax.set_xticks([x * 11 + 5.5 for x in range(7)])
+        ax.legend(legend, [x for x in range(1, 9)], ncol=9, loc="lower center")
+        ax.set_xticks([x * 11 + 5.5 for x in range(len(labels))])
         ax.set_xticklabels(labels)
         ax.set_yticks([x / 10 for x in range(0, 11)])
         ax.set_yticklabels([f"{x * 10}%" for x in range(0, 11)])
@@ -263,6 +314,72 @@ def main():
         for (subject, time) in k[:20]:
             print(f"{time} {subjects[subject]} ")
         print()
+
+    assignments = get_assignments(user, last_updated=last_done)
+    assignment_due_date_counts_by_subject_and_stage = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    for a in assignments:
+        """
+        {
+          "id": 80463006,
+          "object": "assignment",
+          "url": "https://api.wanikani.com/v2/assignments/80463006",
+          "data_updated_at": "2017-10-30T01:51:10.438432Z",
+          "data": {
+            "created_at": "2017-09-05T23:38:10.695133Z",
+            "subject_id": 8761,
+            "subject_type": "radical",
+            "srs_stage": 8,
+            "unlocked_at": "2017-09-05T23:38:10.695133Z",
+            "started_at": "2017-09-05T23:41:28.980679Z",
+            "passed_at": "2017-09-07T17:14:14.491889Z",
+            "burned_at": null,
+            "available_at": "2018-02-27T00:00:00.000000Z",
+            "resurrected_at": null,
+            "hidden": false
+          }
+        }
+        """
+        due_date = a["data"]["available_at"]
+        if due_date is None:
+            continue
+        due_date -= datetime.timedelta(hours=due_date.hour,
+                                       minutes=due_date.minute,
+                                       seconds=due_date.second,
+                                       microseconds=due_date.microsecond)
+        assignment_due_date_counts_by_subject_and_stage[
+            a["data"]["subject_type"]
+        ][
+            a["data"]["srs_stage"]
+        ][
+            due_date
+        ] += 1
+
+    fig = plt.figure(figsize=(15, 12), num=4)
+    for j, t in enumerate(object_types):
+        for i in range(1, 5):
+
+            ax = plt.subplot2grid((3, 4), (j, i - 1))
+            if i == 1:
+                data = assignment_due_date_counts_by_subject_and_stage[t][i].copy()
+                for k, v in assignment_due_date_counts_by_subject_and_stage[t][i + 1].items():
+                    data[k] += v
+                for k, v in assignment_due_date_counts_by_subject_and_stage[t][i + 2].items():
+                    data[k] += v
+                for k, v in assignment_due_date_counts_by_subject_and_stage[t][i + 3].items():
+                    data[k] += v
+            if i == 2:
+                data = assignment_due_date_counts_by_subject_and_stage[t][5].copy()
+                for k, v in assignment_due_date_counts_by_subject_and_stage[t][6].items():
+                    data[k] += v
+            if i == 3:
+                data = assignment_due_date_counts_by_subject_and_stage[t][7].copy()
+            if i == 4:
+                data = assignment_due_date_counts_by_subject_and_stage[t][8].copy()
+            calendar_heatmap(ax,
+                             data.keys(),
+                             [x for x in data.values()]
+                             )
+    plt.show()
 
     with open("last_done.txt", "w") as l:
         l.write(datetime.datetime.utcnow().isoformat())
