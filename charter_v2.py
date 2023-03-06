@@ -358,7 +358,6 @@ def main():
     for j, t in enumerate(object_types):
         for i in range(1, 5):
 
-            ax = plt.subplot2grid((3, 4), (j, i - 1))
             if i == 1:
                 data = assignment_due_date_counts_by_subject_and_stage[t][i].copy()
                 for k, v in assignment_due_date_counts_by_subject_and_stage[t][i + 1].items():
@@ -375,6 +374,9 @@ def main():
                 data = assignment_due_date_counts_by_subject_and_stage[t][7].copy()
             if i == 4:
                 data = assignment_due_date_counts_by_subject_and_stage[t][8].copy()
+            if len(data) == 0:
+                continue
+            ax = plt.subplot2grid((3, 4), (j, i - 1))
             calendar_heatmap(ax,
                              data.keys(),
                              [x for x in data.values()]
