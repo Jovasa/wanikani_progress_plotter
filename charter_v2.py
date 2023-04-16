@@ -61,7 +61,7 @@ def label_days(ax, dates, i, j, calendar):
             ax.text(j, i, int(day), ha='center', va='center')
 
     ax.set(xticks=np.arange(7),
-           xticklabels=['M', 'T', 'W', 'R', 'F', 'S', 'S'])
+           xticklabels=['M', 'T', 'W', 'T', 'F', 'S', 'S'])
     ax.xaxis.tick_top()
 
 
@@ -128,6 +128,8 @@ def main():
     subject_previous_completion = dict()
     weekly_wrong_answers_by_starting_level = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     weekly_correct_answers_by_starting_level = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    daily_level_change = defaultdict(lambda: defaultdict(int))
+    daily_review_count = defaultdict(lambda :defaultdict(int))
     for r in data:
         # {"_id": "6366400b421d07cd976aeff9", "id": 2751167231, "object": "review",
         # "data": {"created_at": "2022-08-15T13:49:17.663000",
@@ -139,30 +141,34 @@ def main():
         #          "incorrect_meaning_answers": 0, "incorrect_reading_answers": 0},
         # "data_updated_at": "2022-08-15T13:49:17.682000", "url": "https://api.wanikani.com/v2/reviews/2751167231"},
         d = r["data"]
-        date: datetime.datetime = r["data_updated_at"]
-        date -= datetime.timedelta(minutes=date.minute, seconds=date.second, microseconds=date.microsecond)
+        date_and_hour: datetime.datetime = r["data_updated_at"]
+        date_and_hour -= datetime.timedelta(minutes=date_and_hour.minute, seconds=date_and_hour.second, microseconds=date_and_hour.microsecond)
+        date = date_and_hour - datetime.timedelta(hours=date_and_hour.hour)
 
         object_type = subjects[int(d["subject_id"])]["object"]
 
         ending_srs_stage = d["ending_srs_stage"]
 
-        hourly_data[object_type][date][d["subject_id"]] = ending_srs_stage
-        hourly_answer_ratio[object_type][date]["meaning_answers"] += d["incorrect_meaning_answers"] + 1
-        hourly_answer_ratio[object_type][date]["incorrect_meaning_answers"] += d["incorrect_meaning_answers"]
-        hourly_answer_ratio[object_type][date]["reading_answers"] += d["incorrect_reading_answers"] + 1
-        hourly_answer_ratio[object_type][date]["incorrect_reading_answers"] += d["incorrect_reading_answers"]
+        hourly_data[object_type][date_and_hour][d["subject_id"]] = ending_srs_stage
+        hourly_answer_ratio[object_type][date_and_hour]["meaning_answers"] += d["incorrect_meaning_answers"] + 1
+        hourly_answer_ratio[object_type][date_and_hour]["incorrect_meaning_answers"] += d["incorrect_meaning_answers"]
+        hourly_answer_ratio[object_type][date_and_hour]["reading_answers"] += d["incorrect_reading_answers"] + 1
+        hourly_answer_ratio[object_type][date_and_hour]["incorrect_reading_answers"] += d["incorrect_reading_answers"]
 
         if d["starting_srs_stage"] >= d["ending_srs_stage"]:
             weekly_wrong_answers_by_starting_level \
-                [object_type][(date.isocalendar().year, date.isocalendar().week)][d["starting_srs_stage"]] += 1
+                [object_type][(date_and_hour.isocalendar().year, date_and_hour.isocalendar().week)][d["starting_srs_stage"]] += 1
         else:
             weekly_correct_answers_by_starting_level \
-                [object_type][(date.isocalendar().year, date.isocalendar().week)][d["starting_srs_stage"]] += 1
+                [object_type][(date_and_hour.isocalendar().year, date_and_hour.isocalendar().week)][d["starting_srs_stage"]] += 1
 
         if d["subject_id"] in subject_previous_completion:
             subject_spent_on_stage[d["subject_id"]][d["starting_srs_stage"]] \
-                += (date - subject_previous_completion[d["subject_id"]]).total_seconds() / 60
-        subject_previous_completion[d["subject_id"]] = date
+                += (date_and_hour - subject_previous_completion[d["subject_id"]]).total_seconds() / 60
+        subject_previous_completion[d["subject_id"]] = date_and_hour
+
+        daily_review_count[object_type][date] += 1
+        daily_level_change[object_type][date] += d["ending_srs_stage"] - d["starting_srs_stage"]
 
     accumulated = dict()
     object_types = ["radical", "kanji", "vocabulary"]
@@ -228,6 +234,18 @@ def main():
         else:
             ax.legend(["meaning", "reading"], loc="lower left")
     fig.show()
+
+    for o in object_types:
+        for day in daily_review_count[o]:
+            daily_level_change[o][day] /= daily_review_count[o][day]
+
+    fig = plt.figure(num=5, figsize=[10, 13])
+    for i, t in enumerate(object_types):
+        ax = fig.add_subplot(311 + i)
+        ax.set_title(t.capitalize())
+        ax.plot(daily_level_change[t].keys(), daily_level_change[t].values())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y\n%m-%d'))
+
 
     fig = plt.figure(num=1, figsize=[10, 13])
     for i, t in enumerate(object_types):
