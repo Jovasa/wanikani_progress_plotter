@@ -246,6 +246,19 @@ def main():
         ax.plot(daily_level_change[t].keys(), daily_level_change[t].values())
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y\n%m-%d'))
 
+    fig.show()
+
+    window_width = 7
+    fig = plt.figure(num=6, figsize=[10, 13])
+    for i, t in enumerate(object_types):
+        ax = fig.add_subplot(311 + i)
+        ax.set_title(t.capitalize())
+        cum_sum = np.cumsum(np.insert([x for x in daily_level_change[t].values()], 0, 0))
+        ma_vec = (cum_sum[window_width:] - cum_sum[:-window_width]) / window_width
+        ax.plot([x for x in daily_level_change[t].keys()][3:-3], ma_vec)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y\n%m-%d'))
+
+    fig.show()
 
     fig = plt.figure(num=1, figsize=[10, 13])
     for i, t in enumerate(object_types):
