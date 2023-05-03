@@ -122,6 +122,16 @@ def main():
 
     level_ups = get_levels(user, last_done)
 
+    assignments = get_assignments(user, last_updated=last_done)
+    with open("assignments.json", "r") as f:
+        old = json.load(f)
+        temp = assignments.copy()
+        for a in temp:
+            del a["_id"]
+        old[str(datetime.datetime.utcnow())] = temp
+    with open("assignments.json", "w") as f:
+        json.dump(old, f, default=str)
+
     hourly_data = defaultdict(lambda: defaultdict(dict))
     hourly_answer_ratio = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     subject_spent_on_stage = defaultdict(lambda: defaultdict(float))
@@ -183,6 +193,17 @@ def main():
             for stage in current_states.values():
                 totals[stage] += 1
             accumulated[t][k] = totals
+
+    for o_t in object_types:
+        for date, data in old.items():
+            date = datetime.datetime.fromisoformat(date)
+            totals = [0 for x in range(10)]
+            for o in data:
+                t = o["data"]["subject_type"]
+                if t != o_t:
+                    continue
+                totals[o["data"]["srs_stage"]] += 1
+            accumulated[o_t][date] = totals
 
     accumulated_accuracy = dict()
     for t in object_types:
@@ -255,7 +276,7 @@ def main():
         ax.set_title(t.capitalize())
         cum_sum = np.cumsum(np.insert([x for x in daily_level_change[t].values()], 0, 0))
         ma_vec = (cum_sum[window_width:] - cum_sum[:-window_width]) / window_width
-        ax.plot([x for x in daily_level_change[t].keys()][3:-3], ma_vec)
+        ax.plot([x for x in daily_level_change[t].keys()][window_width // 2:-((window_width - 1) // 2)], ma_vec)
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y\n%m-%d'))
 
     fig.show()
@@ -346,7 +367,7 @@ def main():
             print(f"{time} {subjects[subject]} ")
         print()
 
-    assignments = get_assignments(user, last_updated=last_done)
+
     assignment_due_date_counts_by_subject_and_stage = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     for a in assignments:
         """
@@ -412,7 +433,7 @@ def main():
                              data.keys(),
                              [x for x in data.values()]
                              )
-    plt.show()
+    fig.show()
 
     with open("last_done.txt", "w") as l:
         l.write(datetime.datetime.utcnow().isoformat())
