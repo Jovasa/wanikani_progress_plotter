@@ -28,12 +28,17 @@ colors = [
 ]
 
 temp = (Path(__file__) / ".." / "wanikani_token").resolve()
-with open(temp, "r") as t:
-    wanikani_token = t.read()
+with open(temp, "r") as temp_file:
+    wanikani_token = temp_file.read()
+
+
+def iso_year_week_date_to_week_date(iso_year, iso_week, iso_day, current_year):
+    return [iso_year * 52 + iso_week, iso_day]
 
 
 def calendar_array(dates, data):
-    i, j = zip(*[d.isocalendar()[1:] for d in dates])
+    current_year = datetime.datetime.now().isocalendar()[0]
+    i, j = zip(*[iso_year_week_date_to_week_date(*d.isocalendar()[:], current_year) for d in dates])
     i = np.array(i) - min(i)
     j = np.array(j) - 1
     ni = max(i) + 1
@@ -139,7 +144,7 @@ def main():
     weekly_wrong_answers_by_starting_level = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     weekly_correct_answers_by_starting_level = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     daily_level_change = defaultdict(lambda: defaultdict(int))
-    daily_review_count = defaultdict(lambda :defaultdict(int))
+    daily_review_count = defaultdict(lambda: defaultdict(int))
     for r in data:
         # {"_id": "6366400b421d07cd976aeff9", "id": 2751167231, "object": "review",
         # "data": {"created_at": "2022-08-15T13:49:17.663000",
@@ -152,7 +157,8 @@ def main():
         # "data_updated_at": "2022-08-15T13:49:17.682000", "url": "https://api.wanikani.com/v2/reviews/2751167231"},
         d = r["data"]
         date_and_hour: datetime.datetime = r["data_updated_at"]
-        date_and_hour -= datetime.timedelta(minutes=date_and_hour.minute, seconds=date_and_hour.second, microseconds=date_and_hour.microsecond)
+        date_and_hour -= datetime.timedelta(minutes=date_and_hour.minute, seconds=date_and_hour.second,
+                                            microseconds=date_and_hour.microsecond)
         date = date_and_hour - datetime.timedelta(hours=date_and_hour.hour)
 
         object_type = subjects[int(d["subject_id"])]["object"]
@@ -167,10 +173,12 @@ def main():
 
         if d["starting_srs_stage"] >= d["ending_srs_stage"]:
             weekly_wrong_answers_by_starting_level \
-                [object_type][(date_and_hour.isocalendar().year, date_and_hour.isocalendar().week)][d["starting_srs_stage"]] += 1
+                [object_type][(date_and_hour.isocalendar().year, date_and_hour.isocalendar().week)][
+                d["starting_srs_stage"]] += 1
         else:
             weekly_correct_answers_by_starting_level \
-                [object_type][(date_and_hour.isocalendar().year, date_and_hour.isocalendar().week)][d["starting_srs_stage"]] += 1
+                [object_type][(date_and_hour.isocalendar().year, date_and_hour.isocalendar().week)][
+                d["starting_srs_stage"]] += 1
 
         if d["subject_id"] in subject_previous_completion:
             subject_spent_on_stage[d["subject_id"]][d["starting_srs_stage"]] \
@@ -310,6 +318,7 @@ def main():
         ax.legend(labels, loc="upper left", ncol=3 if has_data[9] else 4)
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y\n%m-%d'))
         ax.vlines([x["data"]["passed_at"] for x in level_ups], 0, maximum, linestyles="dashed", zorder=-1)
+        print(maximum)
     fig.show()
 
     fig = plt.figure(num=2, figsize=[12, 13])
@@ -367,7 +376,11 @@ def main():
             print(f"{time} {subjects[subject]} ")
         print()
 
-
+    today = datetime.datetime.now()
+    today -= datetime.timedelta(seconds=today.second,
+                                hours=today.hour,
+                                minutes=today.minute,
+                                microseconds=today.microsecond)
     assignment_due_date_counts_by_subject_and_stage = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     for a in assignments:
         """
@@ -398,6 +411,7 @@ def main():
                                        minutes=due_date.minute,
                                        seconds=due_date.second,
                                        microseconds=due_date.microsecond)
+        due_date = max(due_date, today)
         assignment_due_date_counts_by_subject_and_stage[
             a["data"]["subject_type"]
         ][
@@ -406,9 +420,9 @@ def main():
             due_date
         ] += 1
 
-    fig = plt.figure(figsize=(15, 12), num=4)
+    fig = plt.figure(figsize=(17, 12), num=4)
     for j, t in enumerate(object_types):
-        for i in range(1, 5):
+        for i in range(1, 6):
 
             if i == 1:
                 data = assignment_due_date_counts_by_subject_and_stage[t][i].copy()
@@ -420,20 +434,22 @@ def main():
                     data[k] += v
             if i == 2:
                 data = assignment_due_date_counts_by_subject_and_stage[t][5].copy()
-                for k, v in assignment_due_date_counts_by_subject_and_stage[t][6].items():
-                    data[k] += v
             if i == 3:
-                data = assignment_due_date_counts_by_subject_and_stage[t][7].copy()
+                data = assignment_due_date_counts_by_subject_and_stage[t][6].copy()
             if i == 4:
+                data = assignment_due_date_counts_by_subject_and_stage[t][7].copy()
+            if i == 5:
                 data = assignment_due_date_counts_by_subject_and_stage[t][8].copy()
+
             if len(data) == 0:
                 continue
-            ax = plt.subplot2grid((3, 4), (j, i - 1))
+            ax = plt.subplot2grid((3, 5), (j, i - 1))
             calendar_heatmap(ax,
                              data.keys(),
                              [x for x in data.values()]
                              )
     fig.show()
+    # plt.waitforbuttonpress()
 
     with open("last_done.txt", "w") as l:
         l.write(datetime.datetime.utcnow().isoformat())
