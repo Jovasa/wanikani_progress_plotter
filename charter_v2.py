@@ -382,6 +382,8 @@ def main():
                                 minutes=today.minute,
                                 microseconds=today.microsecond)
     assignment_due_date_counts_by_subject_and_stage = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    assingment_started_per_week = defaultdict(lambda: defaultdict(int))
+    assingments_burned_per_week = defaultdict(lambda: defaultdict(int))
     for a in assignments:
         """
         {
@@ -405,20 +407,43 @@ def main():
         }
         """
         due_date = a["data"]["available_at"]
-        if due_date is None:
-            continue
-        due_date -= datetime.timedelta(hours=due_date.hour,
-                                       minutes=due_date.minute,
-                                       seconds=due_date.second,
-                                       microseconds=due_date.microsecond)
-        due_date = max(due_date, today)
-        assignment_due_date_counts_by_subject_and_stage[
-            a["data"]["subject_type"]
-        ][
-            a["data"]["srs_stage"]
-        ][
-            due_date
-        ] += 1
+        if due_date is not None:
+            due_date -= datetime.timedelta(hours=due_date.hour,
+                                           minutes=due_date.minute,
+                                           seconds=due_date.second,
+                                           microseconds=due_date.microsecond)
+            due_date = max(due_date, today)
+            assignment_due_date_counts_by_subject_and_stage[
+                a["data"]["subject_type"]
+            ][
+                a["data"]["srs_stage"]
+            ][
+                due_date
+            ] += 1
+
+        start_date = a["data"]["started_at"]
+        if start_date is not None:
+            start_date -= datetime.timedelta(hours=start_date.hour,
+                                             minutes=start_date.minute,
+                                             seconds=start_date.second,
+                                             microseconds=start_date.microsecond)
+            assingment_started_per_week[
+                a["data"]["subject_type"]
+            ][
+                start_date.isocalendar()[:2]
+            ] += 1
+
+        burn_date = a["data"]["burned_at"]
+        if burn_date is not None:
+            burn_date -= datetime.timedelta(hours=burn_date.hour,
+                                            minutes=burn_date.minute,
+                                            seconds=burn_date.second,
+                                            microseconds=burn_date.microsecond)
+            assingments_burned_per_week[
+                a["data"]["subject_type"]
+            ][
+                burn_date.isocalendar()[:2]
+            ] += 1
 
     fig = plt.figure(figsize=(17, 12), num=4)
     for j, t in enumerate(object_types):
@@ -448,6 +473,35 @@ def main():
                              data.keys(),
                              [x for x in data.values()]
                              )
+    fig.show()
+
+    fig = plt.figure(figsize=(17, 12), num=7)
+    for j, t in enumerate(object_types):
+        ax = fig.add_subplot(311 + j)
+        ax.set_title(t.capitalize())
+        total_started = 0
+        total_burned = 0
+        balance = 0
+        weeks = []
+        started_list = []
+        burned_list = []
+        balance_list = []
+        for year_and_week, started in sorted(assingment_started_per_week[t].items(), key=lambda x: x[0]):
+            burned = assingments_burned_per_week[t][year_and_week]
+            total_started += started
+            total_burned += burned
+            balance += started - burned
+            weeks.append(datetime.datetime(int(year_and_week[0]), 1, 1) + datetime.timedelta(weeks=int(year_and_week[1]) - 1))
+            started_list.append(total_started)
+            burned_list.append(total_burned)
+            balance_list.append(balance)
+        legend = ["started", "burned", "balance"]
+        ax.plot(weeks, started_list, color="blue")
+        ax.plot(weeks, burned_list, color="red")
+        ax.plot(weeks, balance_list, color="green")
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y\n%m-%d'))
+        ax.grid(True)
+        ax.legend(legend, loc="upper left")
     fig.show()
     # plt.waitforbuttonpress()
 
