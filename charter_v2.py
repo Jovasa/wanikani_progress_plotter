@@ -384,6 +384,7 @@ def main():
     assignment_due_date_counts_by_subject_and_stage = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     assingment_started_per_week = defaultdict(lambda: defaultdict(int))
     assingments_burned_per_week = defaultdict(lambda: defaultdict(int))
+    all_weeks = set()
     for a in assignments:
         """
         {
@@ -432,6 +433,7 @@ def main():
             ][
                 start_date.isocalendar()[:2]
             ] += 1
+            all_weeks.add(start_date.isocalendar()[:2])
 
         burn_date = a["data"]["burned_at"]
         if burn_date is not None:
@@ -444,6 +446,7 @@ def main():
             ][
                 burn_date.isocalendar()[:2]
             ] += 1
+            all_weeks.add(burn_date.isocalendar()[:2])
 
     fig = plt.figure(figsize=(17, 12), num=4)
     for j, t in enumerate(object_types):
@@ -486,7 +489,8 @@ def main():
         started_list = []
         burned_list = []
         balance_list = []
-        for year_and_week, started in sorted(assingment_started_per_week[t].items(), key=lambda x: x[0]):
+        for year_and_week in sorted(all_weeks):
+            started = assingment_started_per_week[t][year_and_week]
             burned = assingments_burned_per_week[t][year_and_week]
             total_started += started
             total_burned += burned
@@ -505,8 +509,8 @@ def main():
     fig.show()
     # plt.waitforbuttonpress()
 
-    with open("last_done.txt", "w") as l:
-        l.write(datetime.datetime.utcnow().isoformat())
+    # with open("last_done.txt", "w") as l:
+    #     l.write(datetime.datetime.utcnow().isoformat())
 
 
 if __name__ == '__main__':
