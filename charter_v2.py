@@ -509,8 +509,8 @@ def main():
     fig.show()
     # plt.waitforbuttonpress()
 
-    # with open("last_done.txt", "w") as l:
-    #     l.write(datetime.datetime.utcnow().isoformat())
+    with open("last_done.txt", "w") as l:
+        l.write(datetime.datetime.utcnow().isoformat())
 
 
 if __name__ == '__main__':
