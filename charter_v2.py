@@ -11,6 +11,8 @@ import numpy as np
 
 from wanikani_api import UserHandle
 
+from breakdown_assingnments_json import do_one_instance
+
 import json
 
 colors = [
@@ -18,7 +20,7 @@ colors = [
     "xkcd:dark red",
     "red",
     "orange",
-    "xkcd:yellow",
+    "xkcd:pink",
     "xkcd:lime",
     "green",
     "xkcd:dark green",
@@ -128,13 +130,14 @@ def main():
     level_ups = get_levels(user, last_done)
 
     assignments = get_assignments(user, last_updated=last_done)
-    with open("assignments.json", "r") as f:
+    with open("simplejson_out.json", "r") as f:
         old = json.load(f)
         temp = assignments.copy()
         for a in temp:
             del a["_id"]
+        temp = do_one_instance(temp, ["radical", "kanji", "vocabulary"])
         old[str(datetime.datetime.utcnow())] = temp
-    with open("assignments.json", "w") as f:
+    with open("simplejson_out.json", "w") as f:
         json.dump(old, f, default=str)
 
     hourly_data = defaultdict(lambda: defaultdict(dict))
@@ -202,16 +205,10 @@ def main():
                 totals[stage] += 1
             accumulated[t][k] = totals
 
-    for o_t in object_types:
-        for date, data in old.items():
-            date = datetime.datetime.fromisoformat(date)
-            totals = [0 for x in range(10)]
-            for o in data:
-                t = o["data"]["subject_type"]
-                if t != o_t:
-                    continue
-                totals[o["data"]["srs_stage"]] += 1
-            accumulated[o_t][date] = totals
+    for date, data in old.items():
+        date = datetime.datetime.fromisoformat(date)
+        for o_t in object_types:
+            accumulated[o_t][date] = [data[o_t][str(x)] for x in range(0, 10)]
 
     accumulated_accuracy = dict()
     for t in object_types:
